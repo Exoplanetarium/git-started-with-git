@@ -9,8 +9,7 @@ public class Git {
     public static void main(String[] args) {
         Git git = new Git();
         git.init();
-        git.add("test1.txt");
-        git.add("test2.txt");
+
     }
 
     // Initializes repository structure in ./git/: Objects/, index, and HEAD
