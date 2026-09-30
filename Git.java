@@ -51,7 +51,7 @@ public class Git {
     }
 
     // Turns file into BLOB with hash name and inserts into git/objects/, and records in git/index
-    public void add(String filePath) {
+    public void addFile(String filePath) {
         if (!Files.isRegularFile(Path.of(filePath))) {
             return;
         }
@@ -74,25 +74,25 @@ public class Git {
 
         // see if file was already indexed
         try {
-            List<String> lines = Files.readAllLines(Path.of(indexPathString));
-            boolean replaced = false;
+            List<String> indexLines = Files.readAllLines(Path.of(indexPathString));
+            boolean lineReplaced = false;
 
             // false means rewrite the index instead of appending
-            try (FileWriter writer = new FileWriter(indexPathString, false)) {
-                for (String line : lines) {
-                    String[] lineParts = line.split(" ", 2);
+            try (FileWriter indexWriter = new FileWriter(indexPathString, false)) {
+                for (String indexLine : indexLines) {
+                    String[] lineParts = indexLine.split(" ", 2);
 
                     if (lineParts.length == 2 && lineParts[1].equals(filePath)) {
-                        writer.write(indexEntry);
-                        replaced = true;
+                        indexWriter.write(indexEntry);
+                        lineReplaced = true;
                     } else {
-                        writer.write(line + "\n");
+                        indexWriter.write(indexLine + "\n");
                     }
                 }
 
                 // if path wasn't already indexed do this
-                if (!replaced) {
-                    writer.write(indexEntry);
+                if (!lineReplaced) {
+                    indexWriter.write(indexEntry);
                 }
             }
         } catch (IOException e) {
