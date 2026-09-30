@@ -78,21 +78,21 @@ public class Git {
             boolean replaced = false;
 
             // false means rewrite the index instead of appending
-            try (FileWriter writer = new FileWriter(indexPathString, false)) {
+            try (FileWriter indexWriter = new FileWriter(indexPathString, false)) {
                 for (String line : lines) {
                     String[] lineParts = line.split(" ", 2);
 
                     if (lineParts.length == 2 && lineParts[1].equals(filePath)) {
-                        writer.write(indexEntry);
+                        indexWriter.write(indexEntry);
                         replaced = true;
                     } else {
-                        writer.write(line + "\n");
+                        indexWriter.write(line + "\n");
                     }
                 }
 
                 // if path wasn't already indexed do this
                 if (!replaced) {
-                    writer.write(indexEntry);
+                    indexWriter.write(indexEntry);
                 }
             }
         } catch (IOException e) {
