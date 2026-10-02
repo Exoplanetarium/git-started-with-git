@@ -2,6 +2,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -9,7 +10,11 @@ public class Git {
     public static void main(String[] args) {
         Git git = new Git();
         git.init();
-
+        // git.addFile("helloworld.txt");
+        // git.addFile("helloworld2.txt");
+        // git.addFile("helloworld.txt");
+        // git.addFile("testFolder/helloworld.txt");
+        git.addFile("helloworldcopy.txt");
     }
 
     // Initializes repository structure in ./git/: Objects/, index, and HEAD
@@ -70,35 +75,55 @@ public class Git {
 
 
         String indexPathString = "git/index";
-        String indexEntry = fileHash + " " + filePath + "\n";
+        String indexEntry = "\n" + fileHash + " " + "git-started-with-git/" + filePath;
 
         // see if file was already indexed
         try {
             List<String> indexLines = Files.readAllLines(Path.of(indexPathString));
             boolean lineReplaced = false;
-
-            // false means rewrite the index instead of appending
-            try (FileWriter indexWriter = new FileWriter(indexPathString, false)) {
-                for (String indexLine : indexLines) {
-                    String[] lineParts = indexLine.split(" ", 2);
-
-                    if (lineParts.length == 2 && lineParts[1].equals(filePath)) {
-                        indexWriter.write(indexEntry);
-                        lineReplaced = true;
-                    } else {
-                        indexWriter.write(indexLine + "\n");
+            String entryToWrite = "";
+            int i = 0;
+            ArrayList<String> linesToWrite = new ArrayList<>();
+            if (!indexLines.contains(indexEntry.substring(1))) {
+                // false means rewrite the index instead of appending
+                if (Files.size(Path.of("git/index")) != 0) {
+                    for (String indexLine : indexLines) {
+                        String[] lineParts = indexLine.split(" ", 2);
+                        if (lineParts.length == 2 && lineParts[1].substring(21).equals(filePath)) {
+                            entryToWrite = indexEntry;
+                            lineReplaced = true;
+                        } else {
+                            if (i == 0) {
+                                entryToWrite = indexLine;
+                            } else {
+                                entryToWrite = "\n" + indexLine;
+                            }
+                        }
+                        linesToWrite.add(entryToWrite);
+                        i++;
                     }
+                    if (!lineReplaced) {
+                        linesToWrite.add(indexEntry);
+                    }
+                } else {
+                    linesToWrite.add(indexEntry.substring(1));
                 }
 
-                // if path wasn't already indexed do this
-                if (!lineReplaced) {
-                    indexWriter.write(indexEntry);
+                try (FileWriter indexWriter = new FileWriter(indexPathString, false)) {
+                    for (String lineToWrite : linesToWrite) {
+                        indexWriter.write(lineToWrite);
+                    }
+                    indexWriter.close();
                 }
+
             }
+
         } catch (IOException e) {
             System.out.println("Index writing exception: " + e);
         }
     }
+
+
 }
 
 
