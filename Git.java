@@ -5,16 +5,19 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class Git {
     public static void main(String[] args) {
         Git git = new Git();
         git.init();
-        // git.addFile("helloworld.txt");
-        // git.addFile("helloworld2.txt");
-        // git.addFile("helloworld.txt");
-        // git.addFile("testFolder/helloworld.txt");
+        git.addFile("helloworld.txt");
+        git.addFile("helloworld2.txt");
+        git.addFile("helloworld.txt");
+        git.addFile("testFolder/helloworld.txt");
         git.addFile("helloworldcopy.txt");
+        git.addFile("testFolder/testFolder2/testfile1.txt");
+        System.out.println(git.tree("testFolder"));
     }
 
     // Initializes repository structure in ./git/: Objects/, index, and HEAD
@@ -46,6 +49,18 @@ public class Git {
     public String hashFile(String filePath) {
         try {
             byte[] fileContents = Files.readAllBytes(Path.of(filePath));
+            byte[] hash = MessageDigest.getInstance("SHA-1").digest(fileContents);
+            return HexFormat.of().formatHex(hash);
+
+        } catch (Exception e) {
+            System.out.println("File hashing exception:" + e);
+        }
+        return null;
+    }
+
+    public String hashString(String str) {
+         try {
+            byte[] fileContents = str.getBytes();
             byte[] hash = MessageDigest.getInstance("SHA-1").digest(fileContents);
             return HexFormat.of().formatHex(hash);
 
@@ -121,6 +136,28 @@ public class Git {
         } catch (IOException e) {
             System.out.println("Index writing exception: " + e);
         }
+    }
+
+    public String tree(String directoryPath) {
+        ArrayList<String> tree = new ArrayList<>();
+        File path = new File(directoryPath);
+        File[] files = path.listFiles();
+        for (int i = 0; i < files.length; i++) {
+            if (files[i].isFile()) {
+                tree.add("blob " + hashFile(files[i].getPath()) + " " + files[i].getPath());
+            } else {
+                tree.add("folder " + hashString(tree(files[i].getPath())) + " " + files[1].getPath());
+
+            }
+        }
+
+
+
+        StringBuilder ret = new StringBuilder();
+        for (String str : tree) {
+            ret.append(str + "\n");
+        }
+        return hashString(ret.substring(0, ret.length() - 1));
     }
 
 
