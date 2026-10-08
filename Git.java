@@ -11,13 +11,14 @@ public class Git {
     public static void main(String[] args) {
         Git git = new Git();
         git.init();
-        git.addFile("helloworld.txt");
-        git.addFile("helloworld2.txt");
-        git.addFile("helloworld.txt");
-        git.addFile("testFolder/helloworld.txt");
-        git.addFile("helloworldcopy.txt");
-        git.addFile("testFolder/testFolder2/testfile1.txt");
-        System.out.println(git.tree("testFolder"));
+        // git.addFile("helloworld.txt");
+        // git.addFile("helloworld2.txt");
+        // git.addFile("helloworld.txt");
+        // git.addFile("testFolder/helloworld.txt");
+        // git.addFile("helloworldcopy.txt");
+        // git.addFile("testFolder/testFolder2/testfile1.txt");
+        // System.out.println(git.tree("testFolder"));
+        System.out.println(git.indexTree());
     }
 
     // Initializes repository structure in ./git/: Objects/, index, and HEAD
@@ -59,7 +60,7 @@ public class Git {
     }
 
     public String hashString(String str) {
-         try {
+        try {
             byte[] fileContents = str.getBytes();
             byte[] hash = MessageDigest.getInstance("SHA-1").digest(fileContents);
             return HexFormat.of().formatHex(hash);
@@ -146,18 +147,111 @@ public class Git {
             if (files[i].isFile()) {
                 tree.add("blob " + hashFile(files[i].getPath()) + " " + files[i].getPath());
             } else {
-                tree.add("folder " + hashString(tree(files[i].getPath())) + " " + files[1].getPath());
+                tree.add("tree " + hashString(tree(files[i].getPath())) + " " + files[1].getPath());
 
             }
         }
-
-
-
         StringBuilder ret = new StringBuilder();
         for (String str : tree) {
             ret.append(str + "\n");
         }
         return hashString(ret.substring(0, ret.length() - 1));
+    }
+
+    public String indexTree() {
+        try {
+            ArrayList<String> workingList = new ArrayList<>();
+            BufferedReader indexReader = new BufferedReader(new FileReader("git/index"));
+            while (indexReader.ready()) {
+                workingList.add("blob " + indexReader.readLine());
+            }
+            ArrayList<String[]> splitEntries = new ArrayList<>();
+            for (String listEntry : workingList) {
+                splitEntries.add(listEntry.split("/"));
+            }
+            while (splitEntries.size() > 1) {
+                splitEntries = sort(splitEntries);
+                StringBuilder folderEntries = new StringBuilder();
+                ArrayList<Integer> entriesToRemove = new ArrayList<>();
+                String folderName = "";
+                int indexOfEntry = 0;
+                int indexOfFolder = 0;
+                boolean isFirst = true;
+                for (int i = 0; i < splitEntries.size(); i++) {
+                    String[] splitEntry = splitEntries.get(i);
+                    if (isFirst) {
+                        folderName = splitEntry[splitEntry.length - 2];
+                        indexOfFolder = splitEntry.length - 2;
+                        indexOfEntry = i;
+                        folderEntries.append(splitEntry[0].substring(0, 46));
+                        folderEntries.append(splitEntry[splitEntry.length - 1]);
+                        folderEntries.append("\n");
+                        entriesToRemove.add(i);
+                        isFirst = false;
+                    } else {
+                        if (splitEntry.length <= indexOfFolder) {
+                            break;
+                        } else {
+                            if (splitEntry[indexOfFolder].equals(folderName) || indexOfFolder == 0) {
+                                folderEntries.append(splitEntry[0].substring(0, 46));
+                                folderEntries.append(splitEntry[splitEntry.length - 1]);
+                                folderEntries.append("\n");
+                                entriesToRemove.add(i);
+                            }
+                        }
+                    }
+                }
+                String folderString = folderEntries.toString();
+                folderString = folderString.substring(0, folderString.length() - 1);
+
+                // finding the path of the folder to add to new entry
+                StringBuilder folderPath = new StringBuilder();
+                String[] folderArray = splitEntries.get(indexOfEntry);
+                folderPath.append("git-started-with-git/");
+                for (int entryIndex = 1; entryIndex < folderArray.length - 1; entryIndex++) {
+                    String entry = folderArray[entryIndex];
+                    folderPath.append(entry + "/");
+                }
+                // folderPath.append(folderArray[folderArray.length - 1]);
+                String folderPathString = folderPath.toString();
+                String newEntry = "tree " + hashString(folderString) + " "
+                        + folderPathString.substring(0, folderPathString.length() - 1);
+                for (int entryToRemove =
+                        entriesToRemove.size() - 1; entryToRemove >= 0; entryToRemove--) {
+                    splitEntries.remove((int) entriesToRemove.get(entryToRemove));
+                }
+                splitEntries.add(newEntry.split("/"));
+            }
+
+            indexReader.close();
+            String ret = "";
+            for (String part : splitEntries.get(0)) {
+                ret += part + "/";
+            }
+            return "tree " + hashString(ret.substring(0, ret.length() - 1));
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public ArrayList<String[]> sort(ArrayList<String[]> input) {
+        ArrayList<String[]> output = new ArrayList<>();
+        while (input.size() != 0) {
+            int max = 0;
+            int savedIndex = 0;
+            for (int i = 0; i < input.size(); i++) {
+                String[] array = input.get(i);
+                if (array.length > max) {
+                    max = array.length;
+                    savedIndex = i;
+                }
+            }
+            output.add(input.get(savedIndex));
+            input.remove(savedIndex);
+        }
+        return output;
     }
 
 
