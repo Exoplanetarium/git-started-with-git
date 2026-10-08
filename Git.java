@@ -11,13 +11,13 @@ public class Git {
     public static void main(String[] args) {
         Git git = new Git();
         git.init();
-        // git.addFile("helloworld.txt");
-        // git.addFile("helloworld2.txt");
-        // git.addFile("helloworld.txt");
-        // git.addFile("testFolder/helloworld.txt");
-        // git.addFile("helloworldcopy.txt");
-        // git.addFile("testFolder/testFolder2/testfile1.txt");
-        // System.out.println(git.tree("testFolder"));
+        git.addFile("helloworld.txt");
+        git.addFile("helloworld2.txt");
+        git.addFile("helloworld.txt");
+        git.addFile("testFolder/helloworld.txt");
+        git.addFile("helloworldcopy.txt");
+        git.addFile("testFolder/testFolder2/testfile1.txt");
+        System.out.println(git.tree("testFolder"));
         System.out.println(git.indexTree());
     }
 
@@ -151,11 +151,11 @@ public class Git {
 
             }
         }
-        StringBuilder ret = new StringBuilder();
+        StringBuilder toBeReturned = new StringBuilder();
         for (String str : tree) {
-            ret.append(str + "\n");
+            toBeReturned.append(str + "\n");
         }
-        return hashString(ret.substring(0, ret.length() - 1));
+        return hashString(toBeReturned.substring(0, toBeReturned.length() - 1));
     }
 
     public String indexTree() {
