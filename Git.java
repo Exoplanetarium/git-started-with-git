@@ -2,7 +2,9 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.stream.Stream;
@@ -17,8 +19,7 @@ public class Git {
         git.addFile("testFolder/helloworld.txt");
         git.addFile("helloworldcopy.txt");
         git.addFile("testFolder/testFolder2/testfile1.txt");
-        System.out.println(git.tree("testFolder"));
-        System.out.println(git.indexTree());
+        git.commit("Me", "testing first commit");
     }
 
     // Initializes repository structure in ./git/: Objects/, index, and HEAD
@@ -238,7 +239,7 @@ public class Git {
             for (String part : splitEntries.get(0)) {
                 ret += part + "/";
             }
-            return "tree " + hashString(ret.substring(0, ret.length() - 1));
+            return hashString(ret.substring(0, ret.length() - 1));
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -264,7 +265,36 @@ public class Git {
         return output;
     }
 
+    public void commit(String author, String message) {
+        try {
+            StringBuilder commitString = new StringBuilder();
+            commitString.append("tree: " + indexTree() + "\n");
 
+            BufferedReader br = new BufferedReader(new FileReader("git/HEAD"));
+            String line;
+            if ((line = br.readLine()) != null) {
+                commitString.append("parent: " + line + "\n");
+            }
+            br.close();
+            commitString.append("author: " + author + "\n");
+            commitString.append("date: " + LocalDateTime.now() + "\n");
+            commitString.append("message: " + message);
+
+            String commitHash = hashString(commitString.toString());
+            File commitFile = new File("git/objects/" + commitHash);
+
+            FileWriter commitFileWriter = new FileWriter(commitFile.getPath());
+            commitFileWriter.write(commitString.toString());
+            commitFileWriter.close();
+            
+            FileWriter headWriter = new FileWriter("git/HEAD");
+            headWriter.write(commitHash);
+            headWriter.close();
+        } catch (IOException e) {
+            return;
+        }
+
+    }
 }
 
 
