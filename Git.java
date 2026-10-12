@@ -145,9 +145,9 @@ public class Git {
         File[] files = path.listFiles();
         for (int i = 0; i < files.length; i++) {
             if (files[i].isFile()) {
-                tree.add("blob " + hashFile(files[i].getPath()) + " " + files[i].getPath());
+                tree.add("blob " + hashFile(files[i].getPath()) + " " + files[i].getName());
             } else {
-                tree.add("tree " + hashString(tree(files[i].getPath())) + " " + files[1].getPath());
+                tree.add("tree " + hashString(tree(files[i].getPath())) + " " + files[i].getName());
 
             }
         }
@@ -155,7 +155,17 @@ public class Git {
         for (String str : tree) {
             toBeReturned.append(str + "\n");
         }
-        return hashString(toBeReturned.substring(0, toBeReturned.length() - 1));
+        String hash = hashString(toBeReturned.substring(0, toBeReturned.length() - 1));
+        File treeFile = new File("./git/objects/" + hash);
+        try {
+            FileWriter wr = new FileWriter(treeFile.getPath());
+            wr.write(toBeReturned.substring(0, toBeReturned.length() - 1));
+            wr.close();
+        } catch (IOException e) {
+            return "";
+        }
+
+        return hash;
     }
 
     public String indexTree() {
