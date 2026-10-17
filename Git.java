@@ -11,15 +11,21 @@ import java.util.stream.Stream;
 
 public class Git {
     public static void main(String[] args) {
-        Git git = new Git();
+        GitWrapper git = new GitWrapper();
         git.init();
-        git.addFile("helloworld.txt");
-        git.addFile("helloworld2.txt");
-        git.addFile("helloworld.txt");
-        git.addFile("testFolder/helloworld.txt");
-        git.addFile("helloworldcopy.txt");
-        git.addFile("testFolder/testFolder2/testfile1.txt");
-        git.commit("Me", "testing first commit");
+        git.add("helloworld.txt");
+        git.add("testFolder/testfile.txt");
+        String commitHash = git.commit("Me", "testing first commit");
+        git.checkout(commitHash);
+        // Git git = new Git();
+        // git.init();
+        // git.addFile("helloworld.txt");
+        // git.addFile("helloworld2.txt");
+        // git.addFile("helloworld.txt");
+        // git.addFile("testFolder/helloworld.txt");
+        // git.addFile("helloworldcopy.txt");
+        // git.addFile("testFolder/testFolder2/testfile1.txt");
+        // git.commit("Me", "testing first commit");
     }
 
     // Initializes repository structure in ./git/: Objects/, index, and HEAD
@@ -74,28 +80,24 @@ public class Git {
 
     // Turns file into BLOB with hash name and inserts into git/objects/, and records in git/index
     public void addFile(String filePath) {
-        if (!Files.isRegularFile(Path.of(filePath))) {
-            return;
-        }
-
-        String fileHash = this.hashFile(filePath);
-        String blobPathString = "git/objects/" + fileHash;
-        File blob = new File(blobPathString);
-
         try {
+            if (!Files.isRegularFile(Path.of(filePath))) {
+                throw new IOException();
+            }
+
+            String fileHash = this.hashFile(filePath);
+            String blobPathString = "git/objects/" + fileHash;
+            File blob = new File(blobPathString);
+
             blob.createNewFile();
             byte[] contents = Files.readAllBytes(Path.of(filePath));
             Files.write(Path.of(blobPathString), contents);
-        } catch (Exception e) {
-            System.out.println("File adding exception:" + e);
-        }
 
 
-        String indexPathString = "git/index";
-        String indexEntry = "\n" + fileHash + " " + "git-started-with-git/" + filePath;
+            String indexPathString = "git/index";
+            String indexEntry = "\n" + fileHash + " " + "git-started-with-git/" + filePath;
 
-        // see if file was already indexed
-        try {
+            // see if file was already indexed
             List<String> indexLines = Files.readAllLines(Path.of(indexPathString));
             boolean lineReplaced = false;
             String entryToWrite = "";
@@ -223,9 +225,15 @@ public class Git {
                     String entry = folderArray[entryIndex];
                     folderPath.append(entry + "/");
                 }
-                // folderPath.append(folderArray[folderArray.length - 1]);
+
+                // writes tree to objects
+                String folderHash = hashString(folderString);
+                FileWriter folderWriter = new FileWriter("git/objects/" + folderHash);
+                folderWriter.write(folderString);
+                folderWriter.close();
+
                 String folderPathString = folderPath.toString();
-                String newEntry = "tree " + hashString(folderString) + " "
+                String newEntry = "tree " + folderHash + " "
                         + folderPathString.substring(0, folderPathString.length() - 1);
                 for (int entryToRemove =
                         entriesToRemove.size() - 1; entryToRemove >= 0; entryToRemove--) {
@@ -239,7 +247,15 @@ public class Git {
             for (String part : splitEntries.get(0)) {
                 ret += part + "/";
             }
-            return hashString(ret.substring(0, ret.length() - 1));
+
+            String rootTreeHash = hashString(ret.substring(0, ret.length() - 1));
+
+            // writes root tree to objects
+            FileWriter rootTreeWriter = new FileWriter("git/objects/" + rootTreeHash);
+            rootTreeWriter.write(ret.substring(0, ret.length() - 1));
+            rootTreeWriter.close(); 
+            
+            return rootTreeHash;
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -265,7 +281,7 @@ public class Git {
         return output;
     }
 
-    public void commit(String author, String message) {
+    public String commit(String author, String message) {
         try {
             StringBuilder commitString = new StringBuilder();
             commitString.append("tree: " + indexTree() + "\n");
@@ -290,8 +306,10 @@ public class Git {
             FileWriter headWriter = new FileWriter("git/HEAD");
             headWriter.write(commitHash);
             headWriter.close();
+
+            return commitHash;
         } catch (IOException e) {
-            return;
+            return "";
         }
 
     }
