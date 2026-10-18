@@ -11,21 +11,18 @@ import java.util.stream.Stream;
 
 public class Git {
     public static void main(String[] args) {
-        GitWrapper git = new GitWrapper();
-        git.init();
-        git.add("helloworld.txt");
-        git.add("testFolder/testfile.txt");
-        String commitHash = git.commit("Me", "testing first commit");
-        git.checkout(commitHash);
-        // Git git = new Git();
+        // GitWrapper git = new GitWrapper();
         // git.init();
-        // git.addFile("helloworld.txt");
-        // git.addFile("helloworld2.txt");
-        // git.addFile("helloworld.txt");
-        // git.addFile("testFolder/helloworld.txt");
-        // git.addFile("helloworldcopy.txt");
-        // git.addFile("testFolder/testFolder2/testfile1.txt");
-        // git.commit("Me", "testing first commit");
+        // git.add("helloworld.txt");
+        // git.add("testFolder/testfile.txt");
+        // git.add("testFolder/helloworld.txt");
+        // git.add("helloworldcopy.txt");
+        // git.add("testFolder/testFolder2/testfile1.txt");
+
+        Git gitTest = new Git();
+        gitTest.regenerateIndex();
+        gitTest.commit("Me", "testing first commit");
+
     }
 
     // Initializes repository structure in ./git/: Objects/, index, and HEAD
@@ -312,6 +309,62 @@ public class Git {
             return "";
         }
 
+    }
+
+    public void regenerateIndex() {
+        try {
+            BufferedReader headReader = new BufferedReader(new FileReader("git/HEAD"));
+            String commitHash = headReader.readLine();
+            headReader.close();
+            BufferedReader commitReader = new BufferedReader(new FileReader("git/objects/" + commitHash));
+            String rootHash = "";
+            String line;
+            while ((line = commitReader.readLine()) != null) {
+                if (line.split(" ")[0].equals("tree:")) {
+                    rootHash = line.split(" ")[1];
+                }
+            }
+            commitReader.close();
+            BufferedReader rootReader = new BufferedReader(new FileReader("git/objects/" + rootHash));
+            String startingHash = rootReader.readLine().split(" ")[1];
+            rootReader.close();
+            String temp = regenerateIndexHelper(startingHash, "git-started-with-git");
+            String indexString = temp.substring(0, temp.length() - 1);
+            FileWriter indexWriter = new FileWriter("git/index");
+            indexWriter.write(indexString);
+            indexWriter.close();
+        } catch (IOException e) {
+            return;
+        }
+    }
+
+    public String regenerateIndexHelper(String treeHash, String path) {
+        try {
+            StringBuilder index = new StringBuilder();
+            BufferedReader br = new BufferedReader(new FileReader("git/objects/" + treeHash));
+            ArrayList<String> treeList = new ArrayList<>();
+            String line;
+            while ((line = br.readLine()) != null) {
+                treeList.add(line);
+            }
+            br.close();
+
+            for (String tree : treeList) {
+                String[] entry = tree.split(" ");
+                if (entry[0].equals("tree")) {
+                    String nextHash = entry[1];
+                    index.append(regenerateIndexHelper(nextHash, path + "/" + entry[2]));
+                } else {
+                    index.append(entry[1] + " " + path + "/" + entry[2] + "\n");
+                }
+            }
+
+            return index.toString();
+
+        } catch (IOException e) {
+            return "";
+        }
+        
     }
 }
 
