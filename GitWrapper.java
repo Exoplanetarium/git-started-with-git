@@ -1,3 +1,10 @@
+import java.io.IOException;
+import java.util.ArrayList;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+
 public class GitWrapper {
 
     /**
@@ -61,6 +68,71 @@ public class GitWrapper {
      * @param commitHash The SHA1 hash of the commit to check out.
      */
     public void checkout(String commitHash) {
-        // to-do: implement functionality here
+        try {
+            BufferedReader indexReader = new BufferedReader(new FileReader("git/index"));
+            String line;
+            while ((line = indexReader.readLine()) != null) {
+                File file = new File(line.split(" ")[1].substring(21));
+                if (file.exists()) {
+                    file.delete();
+                }
+                String[] fileParents = line.split(" ")[1].substring(21).split("/");
+                String path = "";
+                for (String dirPath : fileParents) {
+                    File dir = new File(path + dirPath);
+                    if (dir.isDirectory() && dir.list().length == 0) {
+                        dir.delete();
+                    }
+                    path += dirPath + "/";
+                }
+            }
+            indexReader.close();
+            FileWriter headWriter = new FileWriter("git/HEAD");
+            headWriter.write(commitHash);
+            headWriter.close();
+            Git git = new Git();
+            git.regenerateIndex();
+
+            BufferedReader indexReader2 = new BufferedReader(new FileReader("git/index"));
+            String line2;
+            while ((line2 = indexReader2.readLine()) != null) {
+                String[] dirsToMake = line2.split(" ")[1].substring(21).split("/");
+                String trackDirPath = "";
+                for (int i = 0; i < dirsToMake.length; i++) {
+                    String dirPath = dirsToMake[i];
+                    File file = new File(trackDirPath + dirPath);
+                    if (i != dirsToMake.length - 1) {
+                        file.mkdir();
+                        trackDirPath = dirPath + "/";
+                    } else {
+                        file.createNewFile();
+                        String fileHash = line2.split(" ")[0];
+                        BufferedReader fileReader = new BufferedReader(new FileReader("git/objects/" + fileHash));
+                        StringBuilder fileContents = new StringBuilder();
+                        String line3;
+                        boolean first = false;
+                        while ((line3 = fileReader.readLine()) != null) {
+                            if (first) {
+                                fileContents.append("\n");
+                            }
+                            fileContents.append(line3);
+                            first = true;
+                        }
+
+                        fileReader.close();
+
+                        FileWriter fileWriter = new FileWriter(file.getPath());
+                        fileWriter.write(fileContents.toString());
+                        fileWriter.close();
+                        trackDirPath = "";
+                    }
+                    
+                }
+            }
+            indexReader2.close();
+        } catch (IOException e) {
+            return;
+        }
+        
     }
 }
