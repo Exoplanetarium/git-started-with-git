@@ -2,23 +2,21 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.stream.Stream;
 
 public class Git {
     public static void main(String[] args) {
-        Git git = new Git();
-        git.init();
-        git.addFile("helloworld.txt");
-        git.addFile("helloworld2.txt");
-        git.addFile("helloworld.txt");
-        git.addFile("testFolder/helloworld.txt");
-        git.addFile("helloworldcopy.txt");
-        git.addFile("testFolder/testFolder2/testfile1.txt");
-        System.out.println(git.tree("testFolder"));
-        System.out.println(git.indexTree());
+        GitWrapper git = new GitWrapper();
+        // git.add("helloworld2.txt");
+        // git.add("testFolder/testfile.txt");
+        // git.commit("Me", "Commit B");
+        //git.checkout("7e76e6ef9e5c6d54c8d0ccbbe15e6029fb3e4fde");
+        git.checkout("ac7cedee8370f0c1d21737ad0481363225db6b91");
     }
 
     // Initializes repository structure in ./git/: Objects/, index, and HEAD
@@ -73,34 +71,28 @@ public class Git {
 
     // Turns file into BLOB with hash name and inserts into git/objects/, and records in git/index
     public void addFile(String filePath) {
-        if (!Files.isRegularFile(Path.of(filePath))) {
-            return;
-        }
-
-        String fileHash = this.hashFile(filePath);
-        String blobPathString = "git/objects/" + fileHash;
-        File blob = new File(blobPathString);
-
         try {
+            if (!Files.isRegularFile(Path.of(filePath))) {
+                throw new IOException();
+            }
+
+            String fileHash = this.hashFile(filePath);
+            String blobPathString = "git/objects/" + fileHash;
+            File blob = new File(blobPathString);
+
             blob.createNewFile();
             byte[] contents = Files.readAllBytes(Path.of(filePath));
             Files.write(Path.of(blobPathString), contents);
-        } catch (Exception e) {
-            System.out.println("File adding exception:" + e);
-        }
 
 
-        String indexPathString = "git/index";
-        String indexEntry = "\n" + fileHash + " " + "git-started-with-git/" + filePath;
-
-        // see if file was already indexed
-        try {
+            String indexPathString = "git/index";
+            String indexEntry = fileHash + " " + "git-started-with-git/" + filePath;
+            // see if file was already indexed
             List<String> indexLines = Files.readAllLines(Path.of(indexPathString));
             boolean lineReplaced = false;
             String entryToWrite = "";
-            int i = 0;
             ArrayList<String> linesToWrite = new ArrayList<>();
-            if (!indexLines.contains(indexEntry.substring(1))) {
+            if (!indexLines.contains(indexEntry)) {
                 // false means rewrite the index instead of appending
                 if (Files.size(Path.of("git/index")) != 0) {
                     for (String indexLine : indexLines) {
@@ -109,25 +101,25 @@ public class Git {
                             entryToWrite = indexEntry;
                             lineReplaced = true;
                         } else {
-                            if (i == 0) {
-                                entryToWrite = indexLine;
-                            } else {
-                                entryToWrite = "\n" + indexLine;
-                            }
+                            entryToWrite = indexLine;
                         }
                         linesToWrite.add(entryToWrite);
-                        i++;
                     }
                     if (!lineReplaced) {
                         linesToWrite.add(indexEntry);
                     }
                 } else {
-                    linesToWrite.add(indexEntry.substring(1));
+                    linesToWrite.add(indexEntry);
                 }
 
                 try (FileWriter indexWriter = new FileWriter(indexPathString, false)) {
+                    boolean isFirst = false;
                     for (String lineToWrite : linesToWrite) {
+                        if (isFirst) {
+                            indexWriter.write("\n");
+                        }
                         indexWriter.write(lineToWrite);
+                        isFirst = true;
                     }
                     indexWriter.close();
                 }
@@ -145,9 +137,9 @@ public class Git {
         File[] files = path.listFiles();
         for (int i = 0; i < files.length; i++) {
             if (files[i].isFile()) {
-                tree.add("blob " + hashFile(files[i].getPath()) + " " + files[i].getPath());
+                tree.add("blob " + hashFile(files[i].getPath()) + " " + files[i].getName());
             } else {
-                tree.add("tree " + hashString(tree(files[i].getPath())) + " " + files[1].getPath());
+                tree.add("tree " + hashString(tree(files[i].getPath())) + " " + files[i].getName());
 
             }
         }
@@ -155,7 +147,17 @@ public class Git {
         for (String str : tree) {
             toBeReturned.append(str + "\n");
         }
-        return hashString(toBeReturned.substring(0, toBeReturned.length() - 1));
+        String hash = hashString(toBeReturned.substring(0, toBeReturned.length() - 1));
+        File treeFile = new File("./git/objects/" + hash);
+        try {
+            FileWriter wr = new FileWriter(treeFile.getPath());
+            wr.write(toBeReturned.substring(0, toBeReturned.length() - 1));
+            wr.close();
+        } catch (IOException e) {
+            return "";
+        }
+
+        return hash;
     }
 
     public String indexTree() {
@@ -212,9 +214,15 @@ public class Git {
                     String entry = folderArray[entryIndex];
                     folderPath.append(entry + "/");
                 }
-                // folderPath.append(folderArray[folderArray.length - 1]);
+
+                // writes tree to objects
+                String folderHash = hashString(folderString);
+                FileWriter folderWriter = new FileWriter("git/objects/" + folderHash);
+                folderWriter.write(folderString);
+                folderWriter.close();
+
                 String folderPathString = folderPath.toString();
-                String newEntry = "tree " + hashString(folderString) + " "
+                String newEntry = "tree " + folderHash + " "
                         + folderPathString.substring(0, folderPathString.length() - 1);
                 for (int entryToRemove =
                         entriesToRemove.size() - 1; entryToRemove >= 0; entryToRemove--) {
@@ -228,9 +236,31 @@ public class Git {
             for (String part : splitEntries.get(0)) {
                 ret += part + "/";
             }
-            return "tree " + hashString(ret.substring(0, ret.length() - 1));
+
+            String potentialRootTreeString = ret.substring(0, ret.length() - 1);
+
+            // fixing the bug where a single line is left in the working tree that is NOT the root
+            // writes root tree to objects
+            String rootHash = "";
+            if (!potentialRootTreeString.split(" ")[2].equals("git-started-with-git")) {
+                String blobHash = hashString(potentialRootTreeString);
+                FileWriter blobWriter = new FileWriter("git/objects/" + blobHash);
+                blobWriter.write(potentialRootTreeString);
+                blobWriter.close(); 
+                String actualRootTreeString = "tree " + blobHash + " git-started-with-git";
+                rootHash = hashString(actualRootTreeString);
+                FileWriter rootTreeWriter = new FileWriter("git/objects/" + rootHash);
+                rootTreeWriter.write(actualRootTreeString);
+                rootTreeWriter.close(); 
+            } else {
+                rootHash = hashString(potentialRootTreeString);
+                FileWriter rootTreeWriter = new FileWriter("git/objects/" + rootHash);
+                rootTreeWriter.write(ret.substring(0, ret.length() - 1));
+                rootTreeWriter.close(); 
+            }
+           
+            return rootHash;
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
         return null;
@@ -254,6 +284,99 @@ public class Git {
         return output;
     }
 
+    public String commit(String author, String message) {
+        try {
+            StringBuilder commitString = new StringBuilder();
+            commitString.append("tree: " + indexTree() + "\n");
+
+            BufferedReader br = new BufferedReader(new FileReader("git/HEAD"));
+            String line;
+            if ((line = br.readLine()) != null) {
+                commitString.append("parent: " + line + "\n");
+            }
+            br.close();
+            commitString.append("author: " + author + "\n");
+            commitString.append("date: " + LocalDateTime.now() + "\n");
+            commitString.append("message: " + message);
+
+            String commitHash = hashString(commitString.toString());
+            File commitFile = new File("git/objects/" + commitHash);
+
+            FileWriter commitFileWriter = new FileWriter(commitFile.getPath());
+            commitFileWriter.write(commitString.toString());
+            commitFileWriter.close();
+            
+            FileWriter headWriter = new FileWriter("git/HEAD");
+            headWriter.write(commitHash);
+            headWriter.close();
+
+            return commitHash;
+        } catch (IOException e) {
+            return "";
+        }
+
+    }
+
+    public void regenerateIndex() {
+        try {
+            BufferedReader headReader = new BufferedReader(new FileReader("git/HEAD"));
+            String commitHash = headReader.readLine();
+            headReader.close();
+            BufferedReader commitReader = new BufferedReader(new FileReader("git/objects/" + commitHash));
+            String rootHash = "";
+            String line;
+            while ((line = commitReader.readLine()) != null) {
+                if (line.split(" ")[0].equals("tree:")) {
+                    rootHash = line.split(" ")[1];
+                }
+            }
+            commitReader.close();
+            BufferedReader rootReader = new BufferedReader(new FileReader("git/objects/" + rootHash));
+            String startingHash = rootReader.readLine().split(" ")[1];
+            rootReader.close();
+            String temp = regenerateIndexHelper(startingHash, "git-started-with-git");
+            String indexString = temp.substring(0, temp.length() - 1);
+            FileWriter indexWriter = new FileWriter("git/index");
+            indexWriter.write(indexString);
+            indexWriter.close();
+        } catch (IOException e) {
+            return;
+        }
+    }
+
+    public String regenerateIndexHelper(String treeHash, String path) {
+        try {
+            StringBuilder index = new StringBuilder();
+            BufferedReader br = new BufferedReader(new FileReader("git/objects/" + treeHash));
+            ArrayList<String> treeList = new ArrayList<>();
+            String line;
+            while ((line = br.readLine()) != null) {
+                treeList.add(line);
+            }
+            br.close();
+
+            for (String tree : treeList) {
+                String[] entry = tree.split(" ");
+                if (entry[0].equals("tree")) {
+                    String nextHash = entry[1];
+                    index.append(regenerateIndexHelper(nextHash, path + "/" + entry[2]));
+                } else {
+                    if (entry[2].contains("git-started-with-git")) {
+                        index.append(entry[1] + " " + path + "/" + entry[2].substring(21) + "\n");
+
+                    } else {
+                        index.append(entry[1] + " " + path + "/" + entry[2] + "\n");
+                    }
+                }
+            }
+
+            return index.toString();
+
+        } catch (IOException e) {
+            return "";
+        }
+        
+    }
 
 }
 
